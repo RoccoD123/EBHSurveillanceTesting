@@ -149,7 +149,7 @@
           <b style="color:var(--gold);">Before you begin:</b>
           <ul>
             <li>This exam covers all table games in the EBH Surveillance Handbook.</li>
-            <li>To pass you need <b>80% overall AND at least 80% in every section.</b></li>
+            <li>To pass you need <b>80% overall.</b> A single game below 80% will <b>not</b> fail your exam &mdash; but it will be flagged for a <b>re-test of that game</b>.</li>
             <li>You may <b>skip</b> a question and <b>come back</b> to it &mdash; but you must answer <b>every</b> question before you can submit.</li>
             <li>Your progress saves automatically on this device.</li>
             <li><b>No outside resources.</b> Stay in this window &mdash; time spent away is recorded.</li>
@@ -379,8 +379,7 @@ function finish(){
   var correct=0;
   exam.forEach(function(q){ var ok=grade(q); var st=stats[q.section]; st.total++; if(ok){st.correct++;correct++;} else st.missed.push({section:strip(q.section),qid:q.id,question:q.title,your:answerText(q),correct:correctText(q),ref:(q.ref||'')}); });
   var total=exam.length, pct=Math.round(correct/total*100);
-  var allSecPass=secOrder.every(function(s){return (stats[s].correct/stats[s].total*100)>=PASSING;});
-  var passed=(pct>=PASSING)&&allSecPass;
+  var passed=(pct>=PASSING);  // overall-only; per-game failures are flagged for re-test but do not fail the exam
   var dur=Math.floor((Date.now()-startTs)/1000);
   renderResults(pct,correct,total,passed,stats,secOrder,dur);
   submitResults(pct,correct,total,passed,stats,secOrder,dur);
@@ -390,11 +389,13 @@ function finish(){
 function renderResults(pct,correct,total,passed,stats,secOrder,dur){
   show('results');
   var timeStr=Math.floor(dur/60)+'m '+(dur%60)+'s';
+  var weak=secOrder.filter(function(s){return Math.round(stats[s].correct/stats[s].total*100)<PASSING;});
+  var retakeNote=weak.length?'<div style="margin:14px auto 0;max-width:560px;padding:11px 16px;border:1px solid var(--gold);border-radius:8px;background:#2a2410;color:#f0c040;font-size:0.92rem;line-height:1.45;">&#9888; <b>Re-test required</b> on '+(weak.length>1?'these games':'this game')+': '+weak.map(function(s){return strip(s)+' ('+Math.round(stats[s].correct/stats[s].total*100)+'%)';}).join(', ')+'.</div>':'';
   var secRows='';
   secOrder.forEach(function(s){ var st=stats[s]; var sp=Math.round(st.correct/st.total*100); var ok=sp>=PASSING; var bar='<div style="background:var(--border);border-radius:3px;height:6px;width:100%;margin-top:4px;"><div style="height:100%;border-radius:3px;width:'+sp+'%;background:'+(ok?'var(--green)':'var(--red)')+';"></div></div>'; secRows+='<tr><td style="font-weight:bold;">'+strip(s)+'</td><td style="text-align:center;">'+st.correct+'/'+st.total+'</td><td style="min-width:120px;">'+(ok?'<span style="color:var(--green);font-weight:bold;">&#10003; '+sp+'%</span>':'<span style="color:var(--red);font-weight:bold;">&#10007; '+sp+'%</span>')+bar+'</td><td style="text-align:center;">'+(st.missed.length?'<span style="color:var(--red);">'+st.missed.length+' missed</span>':'<span style="color:var(--green);">All correct</span>')+'</td></tr>'; });
   var missedHTML='';
   secOrder.forEach(function(s){ var st=stats[s]; if(!st.missed.length)return; var rows=st.missed.map(function(m){return '<tr><td style="max-width:260px;">'+m.question+'</td><td>'+m.your+'</td><td><strong style="color:var(--green);">'+m.correct+'</strong></td><td style="color:var(--gold);font-size:0.8rem;">'+(m.ref||'')+'</td></tr>';}).join(''); missedHTML+='<h3 style="color:var(--gold);margin:24px 0 8px;font-size:0.95rem;letter-spacing:1px;text-transform:uppercase;border-bottom:1px solid var(--border);padding-bottom:6px;">'+strip(s)+' &mdash; <span style="color:var(--red);">'+st.missed.length+' missed</span></h3><table class="review-table"><thead><tr><th>Question</th><th>Your Answer</th><th>Correct Answer</th><th>Study (Handbook)</th></tr></thead><tbody>'+rows+'</tbody></table>'; });
-  var html='<div class="results-card"><div style="font-size:1.1rem;color:var(--muted);">Final Exam &mdash; '+escAttr(fName+' '+lName)+'</div><div class="big-score">'+pct+'%</div><div class="status '+(passed?'pass':'fail')+'">'+(passed?'&#10003; PASSED':'&#10007; DID NOT PASS')+'</div><div class="subtitle">Overall: '+correct+' / '+total+' correct &nbsp;|&nbsp; Pass: '+PASSING+'% overall &amp; each section &nbsp;|&nbsp; &#9201; '+timeStr+'</div><div id="send-status" class="send-status">Submitting results&hellip;</div><div style="display:flex;justify-content:center;gap:12px;margin-top:20px;flex-wrap:wrap;"><button class="btn btn-gold" onclick="EXAM.retake()">NEW EXAM (NEXT OPERATOR)</button><button class="btn-save" onclick="window.print()">&#128424; Print</button><button class="btn-save" id="btn-offline" onclick="EXAM.saveOffline()">&#11015; Save Results Offline</button>'+(missedHTML?'<button class="btn-save" id="btn-rev" onclick="EXAM.toggleReview()">&#128203; Review Missed</button>':'')+'</div></div><h3 style="color:var(--gold);margin:32px 0 12px;letter-spacing:1px;font-size:1rem;text-transform:uppercase;">Section Breakdown</h3><table class="review-table"><thead><tr><th>Section</th><th style="text-align:center;">Score</th><th>Result</th><th style="text-align:center;">Missed</th></tr></thead><tbody>'+secRows+'</tbody></table>'+(missedHTML?'<div id="review-section" style="display:none;">'+missedHTML+'</div>':'<p style="color:var(--green);text-align:center;margin-top:28px;font-size:1.1rem;">&#127881; Perfect score &mdash; nothing missed!</p>');
+  var html='<div class="results-card"><div style="font-size:1.1rem;color:var(--muted);">Final Exam &mdash; '+escAttr(fName+' '+lName)+'</div><div class="big-score">'+pct+'%</div><div class="status '+(passed?'pass':'fail')+'">'+(passed?'&#10003; PASSED':'&#10007; DID NOT PASS')+'</div><div class="subtitle">Overall: '+correct+' / '+total+' correct &nbsp;|&nbsp; Pass: '+PASSING+'% overall &nbsp;|&nbsp; &#9201; '+timeStr+'</div>'+retakeNote+'<div id="send-status" class="send-status">Submitting results&hellip;</div><div style="display:flex;justify-content:center;gap:12px;margin-top:20px;flex-wrap:wrap;"><button class="btn btn-gold" onclick="EXAM.retake()">NEW EXAM (NEXT OPERATOR)</button><button class="btn-save" onclick="window.print()">&#128424; Print</button><button class="btn-save" id="btn-offline" onclick="EXAM.saveOffline()">&#11015; Save Results Offline</button>'+(missedHTML?'<button class="btn-save" id="btn-rev" onclick="EXAM.toggleReview()">&#128203; Review Missed</button>':'')+'</div></div><h3 style="color:var(--gold);margin:32px 0 12px;letter-spacing:1px;font-size:1rem;text-transform:uppercase;">Section Breakdown</h3><table class="review-table"><thead><tr><th>Section</th><th style="text-align:center;">Score</th><th>Result</th><th style="text-align:center;">Missed</th></tr></thead><tbody>'+secRows+'</tbody></table>'+(missedHTML?'<div id="review-section" style="display:none;">'+missedHTML+'</div>':'<p style="color:var(--green);text-align:center;margin-top:28px;font-size:1.1rem;">&#127881; Perfect score &mdash; nothing missed!</p>');
   $('results-body').innerHTML=html;
 }
 
@@ -419,8 +420,9 @@ function submitResults(pct,correct,total,passed,stats,secOrder,dur){
   }catch(e){}
 }
 function buildSummary(p,stats,secOrder){
-  var s='Operator: '+p.name+'\nEmployee #: '+p.employeeId+'\nResult: '+p.result+'\nOverall: '+p.correct+'/'+p.total+' ('+p.scorePct+'%)\nDuration: '+Math.floor(p.durationSec/60)+'m '+(p.durationSec%60)+'s\nLeft exam window: '+p.windowLeaves+' time(s)'+(p.windowLeaves?' (~'+p.awaySec+'s)':'')+'\n\nSection scores:\n';
-  secOrder.forEach(function(sec){ var st=stats[sec]; s+='  '+strip(sec)+': '+st.correct+'/'+st.total+'\n'; });
+  var weak=secOrder.filter(function(sec){return Math.round(stats[sec].correct/stats[sec].total*100)<PASSING;});
+  var s='Operator: '+p.name+'\nEmployee #: '+p.employeeId+'\nResult (overall): '+p.result+'\nOverall: '+p.correct+'/'+p.total+' ('+p.scorePct+'%)\nGames to re-test: '+(weak.length?weak.map(strip).join(', '):'none')+'\nDuration: '+Math.floor(p.durationSec/60)+'m '+(p.durationSec%60)+'s\nLeft exam window: '+p.windowLeaves+' time(s)'+(p.windowLeaves?' (~'+p.awaySec+'s)':'')+'\n\nSection scores:\n';
+  secOrder.forEach(function(sec){ var st=stats[sec]; var sp=Math.round(st.correct/st.total*100); s+='  '+strip(sec)+': '+st.correct+'/'+st.total+' ('+sp+'%) - '+(sp>=PASSING?'PASS':'RE-TEST')+'\n'; });
   if(p.misses.length){ s+='\nMissed questions:\n'; p.misses.forEach(function(m){ s+='['+m.section+'] '+m.question+'\n  Their answer: '+m.your+'\n  Correct: '+m.correct+'\n  Study: '+(m.ref||'')+'\n\n'; }); }
   return s;
 }
