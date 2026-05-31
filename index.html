@@ -19,9 +19,9 @@
   .card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:26px 24px;box-shadow:0 10px 40px rgba(0,0,0,0.35);}
   .card h2{color:var(--gold);text-align:center;margin:0 0 18px;font-size:1.25rem;}
   label{display:block;color:var(--muted);font-size:0.85rem;margin-bottom:6px;letter-spacing:0.5px;}
-  input{width:100%;padding:13px 14px;border-radius:9px;border:1px solid var(--border);background:#0b1622;color:var(--text);
+  input,select{width:100%;padding:13px 14px;border-radius:9px;border:1px solid var(--border);background:#0b1622;color:var(--text);
     font-family:inherit;font-size:1.1rem;letter-spacing:1px;outline:none;}
-  input:focus{border-color:var(--gold);}
+  input:focus,select:focus{border-color:var(--gold);}
   .err{color:var(--red);font-size:0.9rem;min-height:1.2em;margin:10px 2px 0;}
   .btn{display:block;width:100%;margin-top:18px;padding:14px;border:none;border-radius:9px;cursor:pointer;
     background:linear-gradient(180deg,var(--gold2),var(--gold));color:#1a1206;font-weight:bold;font-size:1.05rem;font-family:inherit;letter-spacing:1px;}
@@ -41,6 +41,13 @@
     <h2>Operator Sign-In</h2>
     <label for="emp">Employee Number</label>
     <input id="emp" inputmode="numeric" autocomplete="off" autofocus>
+    <label for="shift" style="margin-top:14px;">Your Shift</label>
+    <select id="shift">
+      <option value="">Select your shift&hellip;</option>
+      <option value="Day">Day</option>
+      <option value="Swing">Swing</option>
+      <option value="Grave">Grave</option>
+    </select>
     <div class="err" id="err"></div>
     <button class="btn" id="go-btn" onclick="LOGIN.go()">Continue</button>
     <p class="note">Enter your employee number to begin. You'll be taken to the correct assessment for your record.</p>
@@ -68,22 +75,28 @@
   function showMsg(title,body){ $('form-card').style.display='none'; var m=$('msg-card'); m.style.display='block'; $('msg').innerHTML='<h2 class="msg-title">'+title+'</h2><p class="msg-body">'+body+'</p>'; }
   function applyRoute(st){
     var emp=encodeURIComponent(String(st.employeeId||''));
+    var nm=st.name?('&name='+encodeURIComponent(st.name)):'';
     if(st.route==='retest'){ location.href='retest.html?emp='+emp; return 'retest.html?emp='+emp; }
-    if(st.route==='exam'){ location.href='exam.html?emp='+emp; return 'exam.html?emp='+emp; }
+    if(st.route==='exam'){ location.href='exam.html?emp='+emp+nm; return 'exam.html?emp='+emp+nm; }
     if(st.route==='certified'){ showMsg('&#10003; You are fully certified', 'Every game is at 80% or above &mdash; there is nothing to take'+(st.name?(', '+st.name):'')+'. Thank you.'); return 'certified'; }
     if(st.route==='supervisor'){ showMsg('Please see your supervisor', 'You have used all attempts for this cycle. Your supervisor will advise on next steps.'); return 'supervisor'; }
-    location.href='exam.html?emp='+emp; return 'exam.html?emp='+emp; // safe fallback
+    location.href='exam.html?emp='+emp+nm; return 'exam.html?emp='+emp+nm; // safe fallback
   }
   function go(){
     var emp=$('emp').value.trim();
+    var shift=$('shift').value;
     if(!emp){ $('err').textContent='Please enter your employee number.'; return; }
+    if(!shift){ $('err').textContent='Please select your shift.'; return; }
     $('err').textContent=''; $('go-btn').disabled=true; $('go-btn').innerHTML='<span class="spin"></span>Checking…';
-    jsonp(LOG_URL+'?action=status&key='+encodeURIComponent(LOG_TOKEN)+'&employeeId='+encodeURIComponent(emp), function(st){
-      if(!st||!st.ok){ reset(); $('err').textContent='Could not look you up. Check your number, or see your supervisor.'; return; }
-      applyRoute(st);
+    jsonp(LOG_URL+'?action=setshift&key='+encodeURIComponent(LOG_TOKEN)+'&employeeId='+encodeURIComponent(emp)+'&shift='+encodeURIComponent(shift), function(){
+      jsonp(LOG_URL+'?action=status&key='+encodeURIComponent(LOG_TOKEN)+'&employeeId='+encodeURIComponent(emp), function(st){
+        if(!st||!st.ok){ reset(); $('err').textContent='Could not look you up. Check your number, or see your supervisor.'; return; }
+        applyRoute(st);
+      });
     });
   }
   document.addEventListener('keydown',function(e){ if(e.key==='Enter' && $('form-card').style.display!=='none'){ e.preventDefault(); go(); } });
+  $('emp').addEventListener('change',function(){ var emp=$('emp').value.trim(); if(!emp)return; jsonp(LOG_URL+'?action=status&key='+encodeURIComponent(LOG_TOKEN)+'&employeeId='+encodeURIComponent(emp), function(st){ if(st&&st.ok&&st.shift){ $('shift').value=st.shift; } }); });
   window.LOGIN={ go:go, applyRoute:applyRoute };
 })();
 </script>
