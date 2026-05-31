@@ -260,8 +260,14 @@ function buildExam(){
   if(RETEST){
     exam=[];
     RETEST_GAMES.forEach(function(sec){
-      var qs=shuffle(ALLQ.filter(function(q){return q.section===sec;}));
-      if(qs.length>RETEST_CAP) qs=qs.slice(0,RETEST_CAP);
+      var pool=ALLQ.filter(function(q){return q.section===sec;}), qs;
+      if(sec==='Blackjack Section'){
+        var isStrat=function(q){return /Select the correct answer option/.test(q.title)&&q.img;};
+        var strat=pool.filter(isStrat), other=pool.filter(function(q){return !isStrat(q);});
+        qs=shuffle(other.concat(shuffle(strat).slice(0,BJ_KEEP)));   // full exam Blackjack block = 17 + 35 sampled = 52
+      } else {
+        qs=shuffle(pool); if(qs.length>RETEST_CAP) qs=qs.slice(0,RETEST_CAP);
+      }
       qs.forEach(function(q){ exam.push(q); });
     });
     return;
@@ -602,7 +608,12 @@ window.EXAM={ begin:begin, resume:resume, fresh:fresh, retake:retake, prev:prev,
 
 decryptPayload().then(function(){
   if(RETEST){ show('retest'); loadRetest(); }
-  else { $('setup-loading').style.display='none'; $('setup-main').style.display='block'; }
+  else {
+    $('setup-loading').style.display='none'; $('setup-main').style.display='block';
+    var pe=qparam('emp'), pn=qparam('name');                 // pre-fill from the login hand-off
+    if(pe && $('inp-emp')) $('inp-emp').value=pe;
+    if(pn){ var pp=pn.trim().split(/\s+/); if($('inp-first')) $('inp-first').value=pp.shift()||''; if($('inp-last')) $('inp-last').value=pp.join(' ')||''; }
+  }
 }).catch(function(e){
   if(RETEST){ $('retest-loading').textContent='Failed to load. Please refresh the page.'; }
   else { $('setup-loading').textContent='Failed to load the exam. Please refresh the page.'; }
